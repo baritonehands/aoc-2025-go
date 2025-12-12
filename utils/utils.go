@@ -119,7 +119,7 @@ func Partition[T any, S ~[]T](slice S, n int, step int) iter.Seq[S] {
 	if n == step {
 		return slices.Chunk(slice, n)
 	}
-	
+
 	ret := it.Exhausted[S]()
 	for i := 0; i < len(slice); i += step {
 		innerLen := min(i+n, len(slice))
@@ -162,4 +162,8 @@ func PartitionFunc2[V any, U comparable](slice []V, fn func(t V) U) iter.Seq[ite
 		endPartition()
 		return
 	}
+}
+
+func Identity[T any](t T) T {
+	return t
 }
