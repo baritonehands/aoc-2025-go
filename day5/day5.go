@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	_ "embed"
 	"fmt"
 	"github.com/BooleanCat/go-functional/v2/it"
@@ -84,21 +85,7 @@ func main() {
 
 	// Sort to make combination faster
 	slices.SortFunc(ranges, func(lhs, rhs Range) int {
-		if lhs == rhs {
-			return 0
-		}
-
-		if lhs.start < rhs.start {
-			return -1
-		}
-		if lhs.start == rhs.start {
-			if lhs.end < rhs.end {
-				return -1
-			} else {
-				return 1
-			}
-		}
-		return 1
+		return cmp.Or(cmp.Compare(lhs.start, rhs.start), cmp.Compare(lhs.end, rhs.end))
 	})
 
 	// Combine overlapping ranges
