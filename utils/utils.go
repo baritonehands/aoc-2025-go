@@ -35,6 +35,23 @@ func (p Point) OrthogonalNeighbors(xMax, yMax int) []Point {
 	return ret
 }
 
+func (p Point) AllNeighbors(xMax, yMax int) []Point {
+	ret := p.OrthogonalNeighbors(xMax, yMax)
+	if p.X < xMax && p.Y < yMax {
+		ret = append(ret, Point{p.X + 1, p.Y + 1})
+	}
+	if p.X > 0 && p.Y < yMax {
+		ret = append(ret, Point{p.X - 1, p.Y + 1})
+	}
+	if p.X > 0 && p.Y > 0 {
+		ret = append(ret, Point{p.X - 1, p.Y - 1})
+	}
+	if p.X < xMax && p.Y > 0 {
+		ret = append(ret, Point{p.X + 1, p.Y - 1})
+	}
+	return ret
+}
+
 func PointCompareYX(p1 Point, p2 Point) int {
 	y := cmp.Compare(p1.Y, p2.Y)
 	if y != 0 {

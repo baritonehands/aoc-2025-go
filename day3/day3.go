@@ -3,8 +3,6 @@ package main
 import (
 	_ "embed"
 	"fmt"
-	"github.com/BooleanCat/go-functional/v2/it"
-	"github.com/baritonehands/aoc-2025-go/utils"
 	"slices"
 	"strings"
 )
@@ -12,11 +10,26 @@ import (
 //go:embed input.txt
 var input string //= "987654321111111\n811111111111119\n234234234234278\n818181911112111"
 
-func largestJoltage(line string, vals []int) int {
+func largestJoltage(vals []int) int {
 	tens := slices.Max(vals[:len(vals)-1])
-	tensIdx := strings.Index(line, fmt.Sprint(tens))
-	ones := slices.Max([]byte(line)[tensIdx+1:])
-	return tens*10 + int(ones-'0')
+	tensIdx := slices.Index(vals, tens)
+	ones := slices.Max(vals[tensIdx+1:])
+	return tens*10 + ones
+}
+
+func largestJoltage2(vals []int, size int) int {
+	first := slices.Max(vals[:len(vals)-size-1])
+	firstIdx := slices.Index(vals, first)
+	ones := slices.Max(vals[firstIdx+1:])
+	return first*10 + ones
+}
+
+func digits(s string) []int {
+	ret := make([]int, 0, len(s))
+	for _, c := range s {
+		ret = append(ret, int(c-'0'))
+	}
+	return ret
 }
 
 func main() {
@@ -25,14 +38,9 @@ func main() {
 
 	part1 := 0
 	for _, line := range lines {
-		distinctSeq := utils.PartitionFunc2([]byte(line), utils.Identity)
-		distinctSlice := make([]int, 0, it.Len(distinctSeq))
-		for seq := range distinctSeq {
-			_, vals := it.Collect2(seq)
-			distinctSlice = append(distinctSlice, int(vals[0]-'0'))
-		}
-		//fmt.Println(distinctSlice)
-		part1 += largestJoltage(line, distinctSlice)
+		digitSlice := digits(line)
+		part1 += largestJoltage(digitSlice)
+		fmt.Println(largestJoltage2(digitSlice, 10))
 	}
 	fmt.Println("Part1", part1)
 }
