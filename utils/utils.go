@@ -6,6 +6,7 @@ import (
 	"github.com/BooleanCat/go-functional/v2/it"
 	"iter"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 )
@@ -70,6 +71,25 @@ func PointCompareXY(p1 Point, p2 Point) int {
 	return y
 }
 
+type Point3D struct {
+	X, Y, Z int
+}
+
+func (p Point3D) String() string {
+	return fmt.Sprintf("(%d,%d,%d)", p.X, p.Y, p.Z)
+}
+
+func (p Point3D) Compare(other Point3D) int {
+	return cmp.Or(cmp.Compare(p.X, other.X), cmp.Compare(p.Y, other.Y), cmp.Compare(p.Z, other.Z))
+}
+
+func (p Point3D) DistanceTo(other Point3D) float64 {
+	return math.Sqrt(
+		math.Pow(float64(other.X-p.X), 2) +
+			math.Pow(float64(other.Y-p.Y), 2) +
+			math.Pow(float64(other.Z-p.Z), 2))
+}
+
 func Split2(s string) (string, string) {
 	arr := strings.SplitN(s, " ", 2)
 	return arr[0], arr[1]
@@ -88,6 +108,17 @@ func (s Set[T]) Values() []T {
 func (s Set[T]) Contains(v T) bool {
 	sVal, ok := s[v]
 	return ok && sVal
+}
+
+func (lhs Set[T]) Union(rhs Set[T]) Set[T] {
+	var ret = make(map[T]bool)
+	for c, v := range lhs {
+		ret[c] = v
+	}
+	for c, v := range rhs {
+		ret[c] = v
+	}
+	return ret
 }
 
 func (lhs Set[T]) Difference(rhs Set[T]) Set[T] {
