@@ -75,12 +75,23 @@ func Split2(s string) (string, string) {
 	return arr[0], arr[1]
 }
 
-func SeqSet[I iter.Seq[T], T comparable](iter I) map[T]bool {
+type Set[T comparable] map[T]bool
+
+func SeqSet[I iter.Seq[T], T comparable](iter I) Set[T] {
 	return maps.Collect(it.Zip(iter, it.Repeat(true)))
 }
 
-func SetDifference[K comparable](lhs map[K]bool, rhs map[K]bool) map[K]bool {
-	var ret = make(map[K]bool)
+func (s Set[T]) Values() []T {
+	return slices.Collect(maps.Keys(s))
+}
+
+func (s Set[T]) Contains(v T) bool {
+	sVal, ok := s[v]
+	return ok && sVal
+}
+
+func (lhs Set[T]) Difference(rhs Set[T]) Set[T] {
+	var ret = make(map[T]bool)
 	for c, v := range lhs {
 		_, present := rhs[c]
 		if v && !present {
@@ -90,8 +101,8 @@ func SetDifference[K comparable](lhs map[K]bool, rhs map[K]bool) map[K]bool {
 	return ret
 }
 
-func SetIntersection[K comparable](lhs map[K]bool, rhs map[K]bool) map[K]bool {
-	var ret = make(map[K]bool)
+func (lhs Set[T]) Intersection(rhs Set[T]) Set[T] {
+	var ret = make(map[T]bool)
 	for c, v := range lhs {
 		_, present := rhs[c]
 		if v && present {
