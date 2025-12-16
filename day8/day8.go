@@ -54,8 +54,7 @@ func main() {
 	})
 
 	circuits := map[utils.Point3D]utils.Set[utils.Point3D]{}
-	for i := range 1000 {
-		pair := pairs[i]
+	processPair := func(pair Pair) {
 		c1, ok1 := circuits[pair.p1]
 		c2, ok2 := circuits[pair.p2]
 
@@ -79,6 +78,10 @@ func main() {
 				circuits[point] = c1
 			}
 		}
+	}
+	for i := range 1000 {
+		pair := pairs[i]
+		processPair(pair)
 	}
 
 	part1 := map[string]int{}
@@ -101,29 +104,7 @@ func main() {
 	circuits = map[utils.Point3D]utils.Set[utils.Point3D]{}
 	for i := 0; i < len(pairs); i++ {
 		pair := pairs[i]
-		c1, ok1 := circuits[pair.p1]
-		c2, ok2 := circuits[pair.p2]
-
-		if !ok1 && !ok2 {
-			newCircuit := utils.Set[utils.Point3D]{pair.p1: true, pair.p2: true}
-			circuits[pair.p1] = newCircuit
-			circuits[pair.p2] = newCircuit
-			c1 = newCircuit
-			c2 = newCircuit
-		} else if ok1 && !ok2 {
-			c1[pair.p2] = true
-			c2 = c1
-			circuits[pair.p2] = c2
-		} else if ok2 && !ok1 {
-			c2[pair.p1] = true
-			c1 = c2
-			circuits[pair.p1] = c1
-		} else {
-			maps.Insert(c1, maps.All(c2))
-			for point := range c1 {
-				circuits[point] = c1
-			}
-		}
+		processPair(pair)
 
 		if len(circuits) == len(points) {
 			fmt.Println("part2", pair.p1.X*pair.p2.X)
