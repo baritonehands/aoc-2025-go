@@ -43,7 +43,7 @@ func main() {
 		points = append(points, utils.Point{x, y})
 	}
 
-	pairs := slices.Collect(it.Map(slices.Values(utils.Permutations(points)), func(pair utils.Pair[utils.Point]) Square {
+	pairs := slices.Collect(it.Map(utils.Permutations(points), func(pair utils.Pair[utils.Point]) Square {
 		return Square(pair)
 	}))
 	slices.SortFunc(pairs, func(a, b Square) int {

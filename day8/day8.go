@@ -15,26 +15,6 @@ import (
 //go:embed input.txt
 var input string //= "162,817,812\n57,618,57\n906,360,560\n592,479,940\n352,342,300\n466,668,158\n542,29,236\n431,825,988\n739,650,466\n52,470,668\n216,146,977\n819,987,18\n117,168,530\n805,96,715\n346,949,466\n970,615,88\n941,993,340\n862,61,35\n984,92,344\n425,690,689"
 
-type Pair struct {
-	p1, p2 utils.Point3D
-}
-
-func (p Pair) String() string {
-	return fmt.Sprintf("{%v, %v <-> %5.2f}", p.p1, p.p2, p.p1.DistanceTo(p.p2))
-}
-
-func Permutations(input []utils.Point3D) []Pair {
-	ret := make([]Pair, 0, len(input))
-	for i, lhs := range input {
-		for j := i + 1; j < len(input); j++ {
-			rhs := input[j]
-
-			ret = append(ret, Pair{lhs, rhs})
-		}
-	}
-	return ret
-}
-
 func main() {
 	lines := strings.Split(input, "\n")
 	fmt.Println(len(lines))
@@ -47,31 +27,31 @@ func main() {
 		return append(ret, utils.Point3D{x, y, z})
 	}, []utils.Point3D{})
 
-	pairs := Permutations(points)
+	pairs := slices.Collect(utils.Permutations[utils.Point3D](points))
 
-	slices.SortFunc(pairs, func(a, b Pair) int {
-		return cmp.Compare(a.p1.DistanceTo(a.p2), b.p1.DistanceTo(b.p2))
+	slices.SortFunc(pairs, func(a, b utils.Pair[utils.Point3D]) int {
+		return cmp.Compare(a.P1.DistanceTo(a.P2), b.P1.DistanceTo(b.P2))
 	})
 
 	circuits := map[utils.Point3D]utils.Set[utils.Point3D]{}
-	processPair := func(pair Pair) {
-		c1, ok1 := circuits[pair.p1]
-		c2, ok2 := circuits[pair.p2]
+	processPair := func(pair utils.Pair[utils.Point3D]) {
+		c1, ok1 := circuits[pair.P1]
+		c2, ok2 := circuits[pair.P2]
 
 		if !ok1 && !ok2 {
-			newCircuit := utils.Set[utils.Point3D]{pair.p1: true, pair.p2: true}
-			circuits[pair.p1] = newCircuit
-			circuits[pair.p2] = newCircuit
+			newCircuit := utils.Set[utils.Point3D]{pair.P1: true, pair.P2: true}
+			circuits[pair.P1] = newCircuit
+			circuits[pair.P2] = newCircuit
 			c1 = newCircuit
 			c2 = newCircuit
 		} else if ok1 && !ok2 {
-			c1[pair.p2] = true
+			c1[pair.P2] = true
 			c2 = c1
-			circuits[pair.p2] = c2
+			circuits[pair.P2] = c2
 		} else if ok2 && !ok1 {
-			c2[pair.p1] = true
+			c2[pair.P1] = true
 			c1 = c2
-			circuits[pair.p1] = c1
+			circuits[pair.P1] = c1
 		} else {
 			maps.Insert(c1, maps.All(c2))
 			for point := range c1 {
@@ -107,7 +87,7 @@ func main() {
 		processPair(pair)
 
 		if len(circuits) == len(points) {
-			fmt.Println("part2", pair.p1.X*pair.p2.X)
+			fmt.Println("part2", pair.P1.X*pair.P2.X)
 			break
 		}
 	}
