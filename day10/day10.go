@@ -3,22 +3,17 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/BooleanCat/go-functional/v2/it"
+	pq "github.com/baritonehands/aoc-2025-go/utils/priority_queue"
 )
 
 //go:embed input.txt
 var input string //= "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}\n[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}\n[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}"
-
-func parseLights(lights string) []bool {
-
-	return slices.Collect(it.Map(slices.Values([]byte(lights)), func(ch byte) bool {
-		return ch == '#'
-	}))
-}
 
 func parseButtons(buttons []string) [][]int {
 	return slices.Collect(it.Map(slices.Values(buttons), func(button string) []int {
@@ -38,61 +33,151 @@ func parseJoltage(joltage string) []int {
 }
 
 type Machine struct {
-	lights  []bool
+	lights  string
 	buttons [][]int
-	joltage []int
+	joltage string
 }
 
 type Part1Solution struct {
-	state          []bool
+	state          string
 	buttonsPressed []int
 }
 
-func pressButton(state []bool, button []int) {
+type ButtonPress struct {
+	dest   string
+	button int
+}
+
+func pressButton(state string, button []int) string {
+	mutState := []byte(state)
 	for _, light := range button {
-		state[light] = !state[light]
+		if mutState[light] == '.' {
+			mutState[light] = '#'
+		} else {
+			mutState[light] = '.'
+		}
 	}
+	return string(mutState)
+}
+
+func (m *Machine) walkPath(cameFrom map[ButtonPress]ButtonPress, current ButtonPress) []int {
+	ret := []int{}
+	for {
+		if next, ok := cameFrom[current]; ok {
+			current = next
+			if current.button != -1 {
+				ret = append(ret, current.button)
+			}
+		} else {
+			break
+		}
+	}
+	return ret
 }
 
 func solvePart1(m *Machine) []int {
-	solutions := make([]Part1Solution, 0, len(m.buttons))
-	for buttonIdx, button := range m.buttons {
-		state := make([]bool, len(m.lights))
-		pressButton(state, button)
-		solutions = append(solutions, Part1Solution{state: state, buttonsPressed: []int{buttonIdx}})
-	}
-	//fmt.Println(solutions)
+	emptyState := strings.Repeat(".", len(m.lights))
+	fScore := map[string]int{emptyState: math.MaxInt}
+	fScoreFn := func(state ButtonPress) int { return fScore[state.dest] + 1 }
+	openSet := pq.NewQueue[int, ButtonPress](fScoreFn, ButtonPress{dest: emptyState, button: -1})
+
+	cameFrom := map[ButtonPress]ButtonPress{}
+	gScore := map[string]int{emptyState: 0}
 
 	for {
-		curLen := len(solutions)
-		for i := 0; i < curLen; i++ {
-			solution := solutions[i]
-			lastButton := solution.buttonsPressed[len(solution.buttonsPressed)-1]
-			butLastButton := -1
-			if len(solution.buttonsPressed) > 1 {
-				butLastButton = solution.buttonsPressed[len(solution.buttonsPressed)-2]
-			}
-			if slices.Equal(m.lights, solution.state) {
-				return solution.buttonsPressed
-			}
-
-			toAppend := make([]Part1Solution, 0, len(m.buttons))
-			for buttonIdx, button := range m.buttons {
-				if buttonIdx != butLastButton || buttonIdx != lastButton {
-					nextState := slices.Clone(solution.state)
-					pressButton(nextState, button)
-					nextButtonsPressed := slices.Clone(solution.buttonsPressed)
-					nextButtonsPressed = append(nextButtonsPressed, buttonIdx)
-					nextSolution := Part1Solution{state: nextState, buttonsPressed: nextButtonsPressed}
-					toAppend = append(toAppend, nextSolution)
-				}
-			}
-			solutions[i] = toAppend[0]
-			solutions = append(solutions, toAppend[1:]...)
+		if openSet.Len() == 0 {
+			panic("Shouldn't happen")
 		}
 
-		//fmt.Println(len(solutions))
+		current := openSet.Peek()
+
+		if current.dest == m.lights {
+			// Walk path
+			return append(m.walkPath(cameFrom, current), current.button)
+		} else {
+			openSet.Poll()
+
+			// For each neighbor of current
+			buttonPresses := []ButtonPress{}
+			for buttonIdx, button := range m.buttons {
+				nextState := pressButton(current.dest, button)
+				buttonPresses = append(buttonPresses, ButtonPress{dest: nextState, button: buttonIdx})
+			}
+			for _, buttonPress := range buttonPresses {
+				state := buttonPress.dest
+				g := gScore[current.dest] + 1
+				gState, found := gScore[state]
+				if !found || g < gState {
+					fScore[state] = g + 1
+					cameFrom[buttonPress] = current
+					gScore[state] = g
+					openSet.Append(buttonPress)
+				}
+			}
+		}
+
 	}
+
+	panic("Shouldn't happen")
+}
+
+func pressButtonPart2(state string, button []int) string {
+	nums := strings.Split(state[1:len(state)-1], " ")
+	ints := make([]int, len(nums))
+	for i, s := range nums {
+		ints[i], _ = strconv.Atoi(s)
+	}
+
+	for _, light := range button {
+		ints[light] += 1
+	}
+	return fmt.Sprint(ints)
+}
+
+func solvePart2(m *Machine) []int {
+	emptyState := fmt.Sprint(slices.Repeat([]int{0}, len(m.lights)))
+	fScore := map[string]int{emptyState: math.MaxInt}
+	fScoreFn := func(state ButtonPress) int { return fScore[state.dest] + 1 }
+	openSet := pq.NewQueue[int, ButtonPress](fScoreFn, ButtonPress{dest: emptyState, button: -1})
+
+	cameFrom := map[ButtonPress]ButtonPress{}
+	gScore := map[string]int{emptyState: 0}
+
+	for {
+		if openSet.Len() == 0 {
+			panic("Shouldn't happen")
+		}
+
+		current := openSet.Peek()
+
+		if current.dest == m.joltage {
+			// Walk path
+			return append(m.walkPath(cameFrom, current), current.button)
+		} else {
+			openSet.Poll()
+
+			// For each neighbor of current
+			buttonPresses := []ButtonPress{}
+			for buttonIdx, button := range m.buttons {
+				nextState := pressButtonPart2(current.dest, button)
+				buttonPresses = append(buttonPresses, ButtonPress{dest: nextState, button: buttonIdx})
+			}
+			for _, buttonPress := range buttonPresses {
+				state := buttonPress.dest
+				g := gScore[current.dest] + 1
+				gState, found := gScore[state]
+				if !found || g < gState {
+					fScore[state] = g + 1
+					cameFrom[buttonPress] = current
+					gScore[state] = g
+					openSet.Append(buttonPress)
+				}
+			}
+		}
+
+	}
+
+	panic("Shouldn't happen")
 }
 
 func main() {
@@ -101,16 +186,25 @@ func main() {
 	machines := make([]Machine, 0, len(lines))
 	for _, line := range lines {
 		parts := strings.Split(line, " ")
-		lights := parseLights(parts[0][1 : len(parts[0])-1])
+		lights := parts[0][1 : len(parts[0])-1]
 		buttons := parseButtons(parts[1 : len(parts)-1])
-		joltage := parseJoltage(parts[len(parts)-1])
+		joltageRaw := parts[len(parts)-1]
+		joltage := "[" + strings.ReplaceAll(joltageRaw[1:len(joltageRaw)-1], ",", " ") + "]"
 
 		machines = append(machines, Machine{lights: lights, buttons: buttons, joltage: joltage})
 	}
 	//fmt.Println(machines)
 
+	part1 := 0
+	for _, m := range machines {
+		part1 += len(solvePart1(&m))
+	}
+	fmt.Println("Part1:", part1)
+
+	part2 := 0
 	for _, m := range machines {
 		fmt.Println(m)
-		fmt.Println(solvePart1(&m))
+		part2 += len(solvePart2(&m))
 	}
+	fmt.Println("Part2:", part2)
 }
