@@ -85,5 +85,8 @@ func main() {
 		}
 	}
 
-	fmt.Println(graph.TopologicalSort())
+	fmt.Println(graph.Vertices["svr"])
+	fmt.Println(graph.Vertices["fft"])
+	fmt.Println(graph.Vertices["dac"])
+	fmt.Println(graph.Vertices["out"])
 }
