@@ -3,9 +3,11 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/BooleanCat/go-functional/v2/it"
 	"github.com/baritonehands/aoc-2025-go/utils"
 )
 
@@ -76,6 +78,31 @@ type Region struct {
 	presents []int
 }
 
+type Attempt struct {
+	cur   utils.Point
+	shape Shape
+	idx   int
+}
+
+func printRegion(region Region, attempts []Attempt) {
+	ret := [][]byte{}
+	for _ = range region.h {
+		rowBytes := make([]byte, region.w)
+		for col := range region.w {
+			rowBytes[col] = '.'
+		}
+		ret = append(ret, rowBytes)
+	}
+	for idx, attempt := range attempts {
+		for point := range attempt.shape {
+			ret[point.Y][point.X] = byte('A' + idx)
+		}
+	}
+	fmt.Println(strings.Join(slices.Collect(it.Map(slices.Values(ret), func(bytes []byte) string {
+		return string(bytes)
+	})), "\n"))
+}
+
 func main() {
 	lines := strings.Split(input, "\n")
 
@@ -88,6 +115,7 @@ func main() {
 		}
 
 		if line[1] == ':' {
+			fmt.Println(len(shapes))
 			shapes = append(shapes, parseShape(lines[i+1:i+4]))
 			i += 3
 		} else {
@@ -107,13 +135,114 @@ func main() {
 	//fmt.Println(shapes)
 	//fmt.Println(regions)
 
-	//for _, region := range regions {
-	//	taken := utils.Set[utils.Point]{}
-	//	remainingPresents := slices.Clone(region.presents)
-	//
-	//	cur := utils.Point{X: 0, Y: 0}
-	//	for {
-	//
-	//	}
-	//}
+	part1 := 0
+	for _, region := range regions[1:2] {
+		taken := utils.Set[utils.Point]{}
+		takenAttempts := []Attempt{}
+		emptyPresents := make([]int, len(region.presents))
+		remainingPresents := slices.Clone(region.presents)
+
+		computeShapesToTry := func() [][]Shape {
+			ret := make([][]Shape, len(region.presents))
+			for i, n := range remainingPresents {
+				if n > 0 {
+					ret[i] = shapes[i]
+				} else {
+					ret[i] = []Shape{}
+				}
+			}
+			return ret
+		}
+
+		cur := utils.Point{X: 0, Y: 0}
+		shapesToTry := map[utils.Point][][]Shape{}
+
+		findNextShape := func(cur utils.Point) (bool, int, Shape) {
+			toTry := shapesToTry[cur]
+			for i, try := range toTry {
+				if len(try) > 0 {
+					toTry[i] = toTry[i][1:]
+					fmt.Printf("trying %v:\n%v\n", cur, try[0].String())
+					return true, i, try[0]
+				}
+			}
+			return false, 0, nil
+		}
+
+		computeNextPoint := func(cur utils.Point) (bool, utils.Point) {
+			for row := cur.Y; row < region.h-2; row++ {
+				xStart := cur.X + 1
+				if row != cur.Y {
+					xStart = 0
+				}
+				for col := xStart; col < region.w-2; col++ {
+					point := utils.Point{X: col, Y: row}
+					if !taken[point] {
+						return true, point
+					}
+				}
+			}
+			return false, cur
+		}
+
+		backtrack := func() {
+			lastAttempt := takenAttempts[len(takenAttempts)-1]
+			takenAttempts = takenAttempts[:len(takenAttempts)-1]
+			for point := range lastAttempt.shape {
+				delete(taken, point)
+			}
+			delete(shapesToTry, cur)
+			cur = lastAttempt.cur
+			remainingPresents[lastAttempt.idx]++
+		}
+
+		for _ = range 1000 {
+			if shapesToTry[cur] == nil {
+				shapesToTry[cur] = computeShapesToTry()
+			}
+
+			found, shapeIdx, shapeToTry := findNextShape(cur)
+			if found {
+				valid := true
+				adjustedShape := Shape{}
+				for point := range shapeToTry {
+					point.X += cur.X
+					point.Y += cur.Y
+					if (point.X >= region.w || point.Y >= region.h) || taken.Contains(point) {
+						valid = false
+						break
+					}
+					adjustedShape[point] = true
+				}
+
+				if valid {
+					remainingPresents[shapeIdx]--
+					takenAttempts = append(takenAttempts, Attempt{cur, adjustedShape, shapeIdx})
+					if slices.Equal(emptyPresents, remainingPresents) {
+						printRegion(region, takenAttempts)
+						part1++
+						break
+					}
+					for point := range adjustedShape {
+						taken[point] = true
+					}
+					if found, cur = computeNextPoint(cur); !found {
+						fmt.Println("backtrack: next point", len(taken))
+						printRegion(region, takenAttempts)
+						backtrack()
+					}
+				} else {
+					if found, cur = computeNextPoint(cur); !found {
+						fmt.Println("invalid: next shape", len(taken))
+						printRegion(region, takenAttempts)
+					}
+				}
+			} else {
+				fmt.Println("backtrack: next shape", len(taken))
+				printRegion(region, takenAttempts)
+				backtrack()
+			}
+		}
+		fmt.Println("part1", part1)
+	}
 }
