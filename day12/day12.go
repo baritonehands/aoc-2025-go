@@ -3,16 +3,18 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/BooleanCat/go-functional/v2/it"
+	"github.com/BooleanCat/go-functional/v2/it/itx"
 	"github.com/baritonehands/aoc-2025-go/utils"
 )
 
-// go:embed input.txt
-var input string = "0:\n###\n##.\n##.\n\n1:\n###\n##.\n.##\n\n2:\n.##\n###\n##.\n\n3:\n##.\n###\n##.\n\n4:\n###\n#..\n###\n\n5:\n###\n.#.\n###\n\n4x4: 0 0 0 0 2 0\n12x5: 1 0 1 0 2 2\n12x5: 1 0 1 0 3 2"
+//go:embed input.txt
+var input string //= "0:\n###\n##.\n##.\n\n1:\n###\n##.\n.##\n\n2:\n.##\n###\n##.\n\n3:\n##.\n###\n##.\n\n4:\n###\n#..\n###\n\n5:\n###\n.#.\n###\n\n4x4: 0 0 0 0 2 0\n12x5: 1 0 1 0 2 2\n12x5: 1 0 1 0 3 2"
 
 var rotations = map[utils.Point][]utils.Point{
 	{X: 0, Y: 0}: {{2, 0}, {2, 2}, {0, 2}},
@@ -136,22 +138,31 @@ func main() {
 	//fmt.Println(regions)
 
 	part1 := 0
-	for _, region := range regions[1:2] {
+	for _, region := range regions {
 		taken := utils.Set[utils.Point]{}
 		takenAttempts := []Attempt{}
 		emptyPresents := make([]int, len(region.presents))
 		remainingPresents := slices.Clone(region.presents)
 
-		computeShapesToTry := func() [][]Shape {
+		computeShapesToTry := func() (bool, [][]Shape) {
 			ret := make([][]Shape, len(region.presents))
+			cnt := 0
 			for i, n := range remainingPresents {
 				if n > 0 {
-					ret[i] = shapes[i]
+					ret[i] = itx.FromSlice(shapes[i]).
+						Filter(func(s Shape) bool {
+							return len(taken.Intersection(utils.Set[utils.Point](s))) == 0
+						}).
+						Collect()
+					cnt += len(ret[i])
 				} else {
 					ret[i] = []Shape{}
 				}
 			}
-			return ret
+			if cnt == 0 {
+				return false, nil
+			}
+			return true, ret
 		}
 
 		cur := utils.Point{X: 0, Y: 0}
@@ -170,35 +181,66 @@ func main() {
 		}
 
 		computeNextPoint := func(cur utils.Point) (bool, utils.Point) {
-			for row := cur.Y; row < region.h-2; row++ {
-				xStart := cur.X + 1
-				if row != cur.Y {
-					xStart = 0
-				}
-				for col := xStart; col < region.w-2; col++ {
-					point := utils.Point{X: col, Y: row}
-					if !taken[point] {
-						return true, point
-					}
+			//for row := cur.Y; row < region.h-2; row++ {
+			//	xStart := cur.X + 1
+			//	if row != cur.Y {
+			//		xStart = 0
+			//	}
+			//	for col := xStart; col < region.w-2; col++ {
+			//		point := utils.Point{X: col, Y: row}
+			//		if !taken[point] {
+			//			return true, point
+			//		}
+			//	}
+			//}
+			//return false, cur
+			ret := utils.Point{X: cur.X + 1, Y: cur.Y}
+			if ret.X >= region.w-2 {
+				ret.X = 0
+				ret.Y += 1
+				if ret.Y >= region.h-2 {
+					return false, cur
 				}
 			}
-			return false, cur
+			return true, ret
 		}
 
 		backtrack := func() {
+			if len(takenAttempts) == 0 {
+				_, cur = computeNextPoint(cur)
+				return
+			}
 			lastAttempt := takenAttempts[len(takenAttempts)-1]
 			takenAttempts = takenAttempts[:len(takenAttempts)-1]
 			for point := range lastAttempt.shape {
 				delete(taken, point)
 			}
-			delete(shapesToTry, cur)
+			toKeep := utils.Set[utils.Point]{lastAttempt.cur: true}
+			for _, attempt := range takenAttempts {
+				toKeep[attempt.cur] = true
+			}
+			nextShapesToTry := maps.Collect(it.Filter2(maps.All(shapesToTry), func(point utils.Point, i [][]Shape) bool {
+				return toKeep[point]
+			}))
+			shapesToTry = nextShapesToTry
 			cur = lastAttempt.cur
 			remainingPresents[lastAttempt.idx]++
 		}
 
-		for _ = range 1000 {
+		for iteration := range 0 {
+			fmt.Println(iteration)
 			if shapesToTry[cur] == nil {
-				shapesToTry[cur] = computeShapesToTry()
+				if shapesFound, nextShapesToTry := computeShapesToTry(); shapesFound {
+					shapesToTry[cur] = nextShapesToTry
+				} else {
+					if shapesFound, cur = computeNextPoint(cur); !shapesFound {
+						fmt.Println("invalid: next shape", len(taken))
+						printRegion(region, takenAttempts)
+						backtrack()
+					} else {
+						continue
+					}
+				}
 			}
 
 			found, shapeIdx, shapeToTry := findNextShape(cur)
@@ -235,6 +277,7 @@ func main() {
 					if found, cur = computeNextPoint(cur); !found {
 						fmt.Println("invalid: next shape", len(taken))
 						printRegion(region, takenAttempts)
+						backtrack()
 					}
 				}
 			} else {
@@ -243,6 +286,15 @@ func main() {
 				backtrack()
 			}
 		}
-		fmt.Println("part1", part1)
+
+		// I hate that this worked
+		requiredSize := it.Fold(slices.Values(region.presents), func(sum int, v int) int {
+			return sum + v
+		}, 0) * 9
+
+		if requiredSize <= region.w*region.h {
+			part1++
+		}
 	}
+	fmt.Println("part1", part1)
 }
