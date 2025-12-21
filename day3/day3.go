@@ -3,6 +3,7 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 )
@@ -18,10 +19,15 @@ func largestJoltage(vals []int) int {
 }
 
 func largestJoltage2(vals []int, size int) int {
-	first := slices.Max(vals[:len(vals)-size-1])
-	firstIdx := slices.Index(vals, first)
-	ones := slices.Max(vals[firstIdx+1:])
-	return first*10 + ones
+	first := slices.Max(vals[:len(vals)-size+1])
+	cur := first * int(math.Pow10(size-1))
+
+	if size == 1 {
+		return cur
+	} else {
+		firstIdx := slices.Index(vals, first)
+		return cur + largestJoltage2(vals[firstIdx+1:], size-1)
+	}
 }
 
 func digits(s string) []int {
@@ -37,10 +43,12 @@ func main() {
 	//fmt.Println(lines)
 
 	part1 := 0
+	part2 := 0
 	for _, line := range lines {
 		digitSlice := digits(line)
 		part1 += largestJoltage(digitSlice)
-		fmt.Println(largestJoltage2(digitSlice, 10))
+		part2 += largestJoltage2(digitSlice, 12)
 	}
 	fmt.Println("Part1", part1)
+	fmt.Println("Part2", part2)
 }
